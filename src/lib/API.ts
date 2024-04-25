@@ -11,8 +11,10 @@ export default class SpotifyApi {
 
     nextTokenRefreshTime!: Date
 
-    constructor(private auth: IAuth) {
+    constructor(private auth: IAuth, public yt_cookie: string) {
         this.spotifyAPI = new SpotifyAPI(this.auth)
+
+        this.yt_cookie = yt_cookie || '' 
     }
 
     verifyCredentials = async (): Promise<void> => {

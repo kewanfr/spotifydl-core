@@ -11,12 +11,17 @@ import Ffmpeg from 'fluent-ffmpeg'
  * @returns `Buffer`
  * @throws Error if the URL is invalid
  */
-export const downloadYT = async (url: string): Promise<Buffer> => {
+export const downloadYT = async (url: string, credentialsCookie?: string | undefined): Promise<Buffer> => {
     if (!ytdl.validateURL(url)) throw new SpotifyDlError('Invalid YT URL', 'SpotifyDlError')
     const filename = `${os.tmpdir()}/${Math.random().toString(36).slice(-5)}.mp3`
     const stream = ytdl(url, {
         quality: 'highestaudio',
-        filter: 'audioonly'
+        filter: 'audioonly',
+        requestOptions: {
+            headers: {
+                cookie: credentialsCookie || ''
+            }
+        }
     })
     return await new Promise((resolve, reject) => {
         Ffmpeg(stream)
@@ -37,8 +42,12 @@ export const downloadYT = async (url: string): Promise<Buffer> => {
  * @param filename the file to save to
  * @returns filename
  */
-export const downloadYTAndSave = async (url: string, filename = (Math.random() + 1).toString(36).substring(7) + '.mp3'): Promise<string> => {
-    const audio = await downloadYT(url)
+export const downloadYTAndSave = async (
+    url: string,
+    filename = (Math.random() + 1).toString(36).substring(7) + '.mp3',
+    credentialsCookie?: string | undefined
+): Promise<string> => {
+    const audio = await downloadYT(url, credentialsCookie)
     try {
         await writeFile(filename, audio)
         return filename

@@ -2,15 +2,21 @@ import { promises, unlink } from 'fs-extra'
 import SpotifyApi, { IAuth, UserObjectPublic } from './lib/API'
 import Artist from './lib/details/Atrist'
 import Playlist from './lib/details/Playlist'
-import SongDetails from './lib/details/Track'
+import SongDetails, { ITrackDetails } from './lib/details/Track'
 import { downloadYT, downloadYTAndSave } from './lib/download'
 import SpotifyDlError from './lib/Error'
 import getYtlink from './lib/getYtlink'
-import metadata from './lib/metadata'
+import https from 'https'
+import NodeID3 from 'node-id3'
+
+import fs from 'fs'
+import { promisify } from 'util'
+const readFileAsync = promisify(fs.readFile)
 
 export default class SpotifyFetcher extends SpotifyApi {
-    constructor(auth: IAuth) {
-        super(auth)
+    constructor(auth: IAuth, ytCookie?: string) {
+        super(auth, ytCookie || '')
+
     }
 
     /**
