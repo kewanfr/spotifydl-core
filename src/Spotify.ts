@@ -89,6 +89,31 @@ export default class SpotifyFetcher extends SpotifyApi {
         return splits[splits.length - 1]
     }
 
+    downloadImage = async <T extends undefined | string>(
+        url: string,
+        filename = (Math.random() + 1).toString(36).substring(7) + '.jpg'
+    ): Promise<T extends undefined ? Buffer : string> => {
+        return new Promise((resolve, reject) => {
+            https.get(url, (res) => {
+                const chunks: Buffer[] = []
+                res.on('data', (chunk) => {
+                    chunks.push(chunk)
+                })
+                res.on('end', async () => {
+                    const buffer = Buffer.concat(chunks)
+                    if (!filename) {
+                        resolve(buffer as any)
+                    } else {
+                        await promises.writeFile(filename, buffer)
+                        resolve(filename as any)
+                    }
+                })
+                res.on('error', (err) => reject(err))
+            })
+        })
+    }
+
+
     /**
      * Downloads the given spotify track
      * @param url Url to download

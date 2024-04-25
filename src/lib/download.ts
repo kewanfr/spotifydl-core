@@ -14,6 +14,7 @@ import Ffmpeg from 'fluent-ffmpeg'
 export const downloadYT = async (url: string, credentialsCookie?: string | undefined): Promise<Buffer> => {
     if (!ytdl.validateURL(url)) throw new SpotifyDlError('Invalid YT URL', 'SpotifyDlError')
     const filename = `${os.tmpdir()}/${Math.random().toString(36).slice(-5)}.mp3`
+    console.log("filename", filename);
     const stream = ytdl(url, {
         quality: 'highestaudio',
         filter: 'audioonly',
@@ -23,6 +24,10 @@ export const downloadYT = async (url: string, credentialsCookie?: string | undef
             }
         }
     })
+    console.log("stream", stream);
+
+    if (!stream) throw new SpotifyDlError('Error while downloading', 'SpotifyDlError')
+    
     return await new Promise((resolve, reject) => {
         Ffmpeg(stream)
             .audioBitrate(128)
