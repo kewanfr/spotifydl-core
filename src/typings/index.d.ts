@@ -4,6 +4,7 @@ export interface ITrack {
     album_name: string
     release_date: string
     cover_url: string
+    track_number: number
 }
 
 export interface IPlaylist {
@@ -20,10 +21,12 @@ export interface IArtist {
 
 export interface IMetadata {
     title: string
-    artist: string[]
+    artist: string
+    album_artist: string
     album: string
     date: string
     attachments?: string[]
     id3v1?: boolean
     'id3v2.3'?: boolean
+    track?: number
 }
