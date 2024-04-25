@@ -135,6 +135,46 @@ export default class SpotifyFetcher extends SpotifyApi {
     }
 
     /**
+     * Tag the given mp3 file with cover image and metadata
+     * @param fileName mp3 fileName to tag
+     * @param coverUrl cover image to tag
+     * @param info metadata to tag
+     * @returns `Promise<string>` file
+     */
+    tagMp3 = async (fileName: string, info: SongDetails | ITrackDetails): Promise<string> => {
+        const mp3Buffer = await readFileAsync(fileName)
+        const imageBuffer = await this.getBufferFromUrl(info.cover_url)
+        const tags = await NodeID3.read(mp3Buffer)
+
+        // Add cover image to mp3File
+        tags.image = {
+            mime: 'image/jpeg',
+            type: {
+                id: 3,
+                name: 'front cover'
+            },
+            description: 'Cover',
+            imageBuffer: imageBuffer
+        }
+
+        tags.trackNumber = info.track_number.toString()
+        tags.title = info.name
+        tags.album = info.album_name
+        tags.artist = info.artists.join('/')
+        tags.performerInfo = info.artists[0]
+        tags.recordingTime = info.release_date
+
+        try {
+            const taggedMp3Data = await NodeID3.write(tags, mp3Buffer)
+            await promises.writeFile(fileName, taggedMp3Data)
+        } catch (err) {
+            console.error('Error updating tags', err)
+        }
+
+        return fileName
+    }
+
+    /**
      * Downloads the given spotify track
      * @param url Url to download
      * @param filename file to save to
@@ -142,22 +182,11 @@ export default class SpotifyFetcher extends SpotifyApi {
      */
     downloadTrack = async <T extends undefined | string>(
         url: string,
-        filename?: T
+        filename?: undefined | string
     ): Promise<T extends undefined ? Buffer : string> => {
         await this.verifyCredentials()
         const info = await this.getTrack(url)
-        const link = await getYtlink(`${info.name} ${info.artists[0]}`)
-        if (!link) throw new SpotifyDlError(`Couldn't get a download URL for the track: ${info.name}`)
-        const data = await downloadYTAndSave(link, filename)
-        await metadata(info, data)
-        if (!filename) {
-            const buffer = await promises.readFile(data)
-            unlink(data)
-            /* eslint-disable @typescript-eslint/no-explicit-any */
-            return buffer as any
-        }
-        /* eslint-disable @typescript-eslint/no-explicit-any */
-        return data as any
+        return await this.downloadTrackFromInfo(info, filename)
     }
 
     /**
@@ -165,10 +194,37 @@ export default class SpotifyFetcher extends SpotifyApi {
      * @param info info of the track got from `spotify.getTrack()`
      * @returns
      */
-    downloadTrackFromInfo = async (info: SongDetails): Promise<Buffer> => {
-        const link = await getYtlink(`${info.name} ${info.artists[0]}`)
-        if (!link) throw new SpotifyDlError(`Couldn't get a download URL for the track: ${info.name}`)
-        return await downloadYT(link)
+    downloadTrackFromInfo = async <T extends undefined | string>(
+        info: SongDetails | ITrackDetails,
+        filename?: undefined | string
+    ): Promise<T extends undefined ? Buffer : string> => {
+        const yt_link = info.youtube_url ?? (await getYtlink(`${info.name} ${info.artists.join(' ')}`))
+        // const link = await getYtlink(`${info.name} ${info.artists.join(' ')}`)
+        console.log(yt_link)
+        if (!yt_link) throw new SpotifyDlError(`Couldn't get a download URL for the track: ${info.name}`)
+        const resultFilename = await downloadYTAndSave(
+            yt_link,
+            filename ?? (Math.random() + 1).toString(36).substring(7) + '.mp3',
+            this.yt_cookie
+        )
+
+        // Tag metadata
+        await this.tagMp3(resultFilename, info)
+
+        if (!resultFilename) {
+            return false as any
+        }
+
+        if (!filename) {
+            const buffer = await readFileAsync(resultFilename)
+            await unlink(resultFilename)
+            return buffer as any
+        }
+        return resultFilename as any
+
+        // const link = await getYtlink(`${info.name} ${info.artists[0]}`)
+        // if (!link) throw new SpotifyDlError(`Couldn't get a download URL for the track: ${info.name}`)
+        // return await downloadYT(link)
     }
 
     private downloadBatch = async (url: string, type: 'album' | 'playlist'): Promise<(string | Buffer)[]> => {
@@ -205,7 +261,7 @@ export default class SpotifyFetcher extends SpotifyApi {
      */
     getTracksFromPlaylist = async (
         url: string
-    ): Promise<{ name: string; total_tracks: number; tracks: SongDetails[] }> => {
+    ): Promise<{ name: string; total_tracks: number; tracks: SongDetails[] | ITrackDetails[] }> => {
         await this.verifyCredentials()
         const playlist = await this.getPlaylist(url)
         const tracks = await Promise.all(playlist.tracks.map((track) => this.getTrack(track)))
@@ -222,7 +278,7 @@ export default class SpotifyFetcher extends SpotifyApi {
      */
     getTracksFromAlbum = async (
         url: string
-    ): Promise<{ name: string; total_tracks: number; tracks: SongDetails[] }> => {
+    ): Promise<{ name: string; total_tracks: number; tracks: SongDetails[] | ITrackDetails[] }> => {
         await this.verifyCredentials()
         const playlist = await this.getAlbum(url)
         const tracks = await Promise.all(playlist.tracks.map((track) => this.getTrack(track)))
