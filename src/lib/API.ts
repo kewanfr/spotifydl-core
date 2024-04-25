@@ -2,6 +2,7 @@ import SpotifyAPI from 'spotify-web-api-node'
 import Artist from './details/Atrist'
 import Playlist from './details/Playlist'
 import TrackDetails from './details/Track'
+import getYtlink from './getYtlink'
 
 const MAX_LIMIT_DEFAULT = 50
 const REFRESH_ACCESS_TOKEN_SECONDS = 55 * 60
@@ -44,6 +45,7 @@ export default class SpotifyApi {
     extractTrack = async (trackId: string): Promise<TrackDetails> => {
         const data = (await this.spotifyAPI.getTrack(trackId)).body
         const details = new TrackDetails()
+
         details.name = data.name
         data.artists.forEach((artist) => {
             details.artists.push(artist.name)
@@ -52,6 +54,10 @@ export default class SpotifyApi {
         details.release_date = data.album.release_date
         details.cover_url = data.album.images[0].url
         details.track_number = data.track_number
+
+        details.spotify_id = data.id
+        details.youtube_url = await getYtlink(`${data.name} ${data.artists.join(' ')}`)
+        details.spotify_url = data.external_urls.spotify
         return details
     }
 
