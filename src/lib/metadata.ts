@@ -4,17 +4,22 @@ import { IMetadata, ITrack } from '../typings'
 
 export default async (data: ITrack, file: string): Promise<string> => {
     const outputOptions: string[] = ['-map', '0:0', '-codec', 'copy']
-
+    
     const metadata: IMetadata = {
         title: data.name,
         album: data.album_name,
-        artist: data.artists,
-        date: data.release_date
+        artist: data.artists.join('/'),
+        album_artist: data.artists[0],
+        date: data.release_date,
+        track: data.track_number
         //attachments: []
     }
 
     Object.keys(metadata).forEach((key) => {
-        outputOptions.push('-metadata', `${String(key)}=${metadata[key as 'title' | 'artist' | 'date' | 'album']}`)
+        outputOptions.push(
+            '-metadata',
+            `${String(key)}=${metadata[(key as 'title' | 'artist' | 'date' | 'album' | 'track' | 'album_artist')]}`
+        )
     })
 
     const out = `${file.split('.')[0]}_temp.mp3`
@@ -28,7 +33,9 @@ export default async (data: ITrack, file: string): Promise<string> => {
             .addOutputOptions(...outputOptions)
             .saveToFile(out)
     })
+
     unlinkSync(file)
     renameSync(out, file)
     return file
+
 }
