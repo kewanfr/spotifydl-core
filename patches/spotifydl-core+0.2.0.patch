@@ -1,7 +1,19 @@
 diff --git a/node_modules/spotifydl-core/dist/Spotify.d.ts b/node_modules/spotifydl-core/dist/Spotify.d.ts
-index a125a9f..ff00b63 100644
+index a125a9f..b043f5b 100644
 --- a/node_modules/spotifydl-core/dist/Spotify.d.ts
 +++ b/node_modules/spotifydl-core/dist/Spotify.d.ts
+@@ -2,9 +2,9 @@
+ import SpotifyApi, { IAuth, UserObjectPublic } from './lib/API';
+ import Artist from './lib/details/Atrist';
+ import Playlist from './lib/details/Playlist';
+-import SongDetails from './lib/details/Track';
++import SongDetails, { ITrackDetails } from './lib/details/Track';
+ export default class SpotifyFetcher extends SpotifyApi {
+-    constructor(auth: IAuth);
++    constructor(auth: IAuth, ytCookie?: string);
+     /**
+      * Get the track details of the given track URL
+      * @param url
 @@ -39,19 +39,34 @@ export default class SpotifyFetcher extends SpotifyApi {
       */
      getPlaylist: (url: string) => Promise<Playlist>;
@@ -20,7 +32,7 @@ index a125a9f..ff00b63 100644
 +     * @param info metadata to tag
 +     * @returns `Promise<string>` file
 +     */
-+    tagMp3: (fileName: string, info: SongDetails) => Promise<string>;
++    tagMp3: (fileName: string, info: SongDetails | ITrackDetails) => Promise<string>;
      /**
       * Downloads the given spotify track
       * @param url Url to download
@@ -35,12 +47,30 @@ index a125a9f..ff00b63 100644
       * @returns
       */
 -    downloadTrackFromInfo: (info: SongDetails) => Promise<Buffer>;
-+    downloadTrackFromInfo: <T extends string | undefined>(info: SongDetails, filename?: undefined | string) => Promise<T extends undefined ? Buffer : string>;
++    downloadTrackFromInfo: <T extends string | undefined>(info: SongDetails | ITrackDetails, filename?: undefined | string) => Promise<T extends undefined ? Buffer : string>;
      private downloadBatch;
      /**
       * Downloads the tracks of a playlist
+@@ -72,7 +87,7 @@ export default class SpotifyFetcher extends SpotifyApi {
+     getTracksFromPlaylist: (url: string) => Promise<{
+         name: string;
+         total_tracks: number;
+-        tracks: SongDetails[];
++        tracks: SongDetails[] | ITrackDetails[];
+     }>;
+     /**
+      * Gets the info of tracks from Album URL
+@@ -81,7 +96,7 @@ export default class SpotifyFetcher extends SpotifyApi {
+     getTracksFromAlbum: (url: string) => Promise<{
+         name: string;
+         total_tracks: number;
+-        tracks: SongDetails[];
++        tracks: SongDetails[] | ITrackDetails[];
+     }>;
+     getSpotifyUser: (id: string) => Promise<UserObjectPublic>;
+ }
 diff --git a/node_modules/spotifydl-core/dist/Spotify.js b/node_modules/spotifydl-core/dist/Spotify.js
-index cdfd478..a8ed699 100644
+index cdfd478..909b167 100644
 --- a/node_modules/spotifydl-core/dist/Spotify.js
 +++ b/node_modules/spotifydl-core/dist/Spotify.js
 @@ -29,7 +29,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
@@ -52,7 +82,7 @@ index cdfd478..a8ed699 100644
              if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
              if (y = 0, t) op = [op[0] & 2, t.value];
              switch (op[0]) {
-@@ -59,7 +59,11 @@ var API_1 = __importDefault(require("./lib/API"));
+@@ -59,11 +59,15 @@ var API_1 = __importDefault(require("./lib/API"));
  var download_1 = require("./lib/download");
  var Error_1 = __importDefault(require("./lib/Error"));
  var getYtlink_1 = __importDefault(require("./lib/getYtlink"));
@@ -64,7 +94,13 @@ index cdfd478..a8ed699 100644
 +var readFileAsync = (0, util_1.promisify)(fs_1.default.readFile);
  var SpotifyFetcher = /** @class */ (function (_super) {
      __extends(SpotifyFetcher, _super);
-     function SpotifyFetcher(auth) {
+-    function SpotifyFetcher(auth) {
+-        var _this = _super.call(this, auth) || this;
++    function SpotifyFetcher(auth, ytCookie) {
++        var _this = _super.call(this, auth, ytCookie || '') || this;
+         /**
+          * Get the track details of the given track URL
+          * @param url
 @@ -171,6 +175,124 @@ var SpotifyFetcher = /** @class */ (function (_super) {
              var splits = url.split('/');
              return splits[splits.length - 1];
@@ -229,47 +265,62 @@ index cdfd478..a8ed699 100644
                  }
              });
          }); };
-@@ -216,17 +319,41 @@ var SpotifyFetcher = /** @class */ (function (_super) {
+@@ -216,17 +319,51 @@ var SpotifyFetcher = /** @class */ (function (_super) {
           * @param info info of the track got from `spotify.getTrack()`
           * @returns
           */
 -        _this.downloadTrackFromInfo = function (info) { return __awaiter(_this, void 0, void 0, function () {
 -            var link;
-+        _this.downloadTrackFromInfo = function (info, filename) { return __awaiter(_this, void 0, void 0, function () {
-+            var link, resultFilename, buffer;
-             return __generator(this, function (_a) {
-                 switch (_a.label) {
+-            return __generator(this, function (_a) {
+-                switch (_a.label) {
 -                    case 0: return [4 /*yield*/, getYtlink_1.default(info.name + " " + info.artists[0])];
-+                    case 0: return [4 /*yield*/, (0, getYtlink_1.default)("".concat(info.name, " ").concat(info.artists[0]))];
-                     case 1:
-                         link = _a.sent();
-                         if (!link)
+-                    case 1:
+-                        link = _a.sent();
+-                        if (!link)
 -                            throw new Error_1.default("Couldn't get a download URL for the track: " + info.name);
 -                        return [4 /*yield*/, download_1.downloadYT(link)];
 -                    case 2: return [2 /*return*/, _a.sent()];
++        _this.downloadTrackFromInfo = function (info, filename) { return __awaiter(_this, void 0, void 0, function () {
++            var yt_link, _a, resultFilename, buffer;
++            var _b;
++            return __generator(this, function (_c) {
++                switch (_c.label) {
++                    case 0:
++                        if (!((_b = info.youtube_url) !== null && _b !== void 0)) return [3 /*break*/, 1];
++                        _a = _b;
++                        return [3 /*break*/, 3];
++                    case 1: return [4 /*yield*/, (0, getYtlink_1.default)("".concat(info.name, " ").concat(info.artists.join(' ')))];
++                    case 2:
++                        _a = (_c.sent());
++                        _c.label = 3;
++                    case 3:
++                        yt_link = _a;
++                        // const link = await getYtlink(`${info.name} ${info.artists.join(' ')}`)
++                        console.log(yt_link);
++                        if (!yt_link)
 +                            throw new Error_1.default("Couldn't get a download URL for the track: ".concat(info.name));
-+                        return [4 /*yield*/, (0, download_1.downloadYTAndSave)(link, filename !== null && filename !== void 0 ? filename : (Math.random() + 1).toString(36).substring(7) + '.mp3')
++                        return [4 /*yield*/, (0, download_1.downloadYTAndSave)(yt_link, filename !== null && filename !== void 0 ? filename : (Math.random() + 1).toString(36).substring(7) + '.mp3', this.yt_cookie)
 +                            // Tag metadata
 +                        ];
-+                    case 2:
-+                        resultFilename = _a.sent();
++                    case 4:
++                        resultFilename = _c.sent();
 +                        // Tag metadata
 +                        return [4 /*yield*/, this.tagMp3(resultFilename, info)];
-+                    case 3:
++                    case 5:
 +                        // Tag metadata
-+                        _a.sent();
++                        _c.sent();
 +                        if (!resultFilename) {
 +                            return [2 /*return*/, false];
 +                        }
-+                        if (!!filename) return [3 /*break*/, 6];
++                        if (!!filename) return [3 /*break*/, 8];
 +                        return [4 /*yield*/, readFileAsync(resultFilename)];
-+                    case 4:
-+                        buffer = _a.sent();
++                    case 6:
++                        buffer = _c.sent();
 +                        return [4 /*yield*/, (0, fs_extra_1.unlink)(resultFilename)];
-+                    case 5:
-+                        _a.sent();
++                    case 7:
++                        _c.sent();
 +                        return [2 /*return*/, buffer];
-+                    case 6: return [2 /*return*/, resultFilename
++                    case 8: return [2 /*return*/, resultFilename
 +                        // const link = await getYtlink(`${info.name} ${info.artists[0]}`)
 +                        // if (!link) throw new SpotifyDlError(`Couldn't get a download URL for the track: ${info.name}`)
 +                        // return await downloadYT(link)
@@ -277,7 +328,7 @@ index cdfd478..a8ed699 100644
                  }
              });
          }); };
-@@ -242,7 +369,7 @@ var SpotifyFetcher = /** @class */ (function (_super) {
+@@ -242,7 +379,7 @@ var SpotifyFetcher = /** @class */ (function (_super) {
                      case 2:
                          playlist = _a.sent();
                          return [2 /*return*/, Promise.all(playlist.tracks.map(function (track) { return __awaiter(_this, void 0, void 0, function () {
@@ -286,7 +337,7 @@ index cdfd478..a8ed699 100644
                                  return __generator(this, function (_a) {
                                      switch (_a.label) {
                                          case 0:
-@@ -250,7 +377,7 @@ var SpotifyFetcher = /** @class */ (function (_super) {
+@@ -250,7 +387,7 @@ var SpotifyFetcher = /** @class */ (function (_super) {
                                              return [4 /*yield*/, this.downloadTrack(track)];
                                          case 1: return [2 /*return*/, _a.sent()];
                                          case 2:
@@ -296,10 +347,22 @@ index cdfd478..a8ed699 100644
                                          case 3: return [2 /*return*/];
                                      }
 diff --git a/node_modules/spotifydl-core/dist/lib/API.d.ts b/node_modules/spotifydl-core/dist/lib/API.d.ts
-index 04f4db1..b2a0f92 100644
+index 04f4db1..2d341c3 100644
 --- a/node_modules/spotifydl-core/dist/lib/API.d.ts
 +++ b/node_modules/spotifydl-core/dist/lib/API.d.ts
-@@ -33,7 +33,7 @@ export interface UserObjectPublic {
+@@ -3,9 +3,10 @@ import Playlist from './details/Playlist';
+ import TrackDetails from './details/Track';
+ export default class SpotifyApi {
+     private auth;
++    yt_cookie: string;
+     private spotifyAPI;
+     nextTokenRefreshTime: Date;
+-    constructor(auth: IAuth);
++    constructor(auth: IAuth, yt_cookie: string);
+     verifyCredentials: () => Promise<void>;
+     checkCredentials: () => Promise<void>;
+     requestTokens: () => Promise<void>;
+@@ -33,7 +34,7 @@ export interface UserObjectPublic {
      href?: string;
      id?: string;
      images?: ImageObject[];
@@ -309,7 +372,7 @@ index 04f4db1..b2a0f92 100644
  }
  export interface ImageObject {
 diff --git a/node_modules/spotifydl-core/dist/lib/API.js b/node_modules/spotifydl-core/dist/lib/API.js
-index ebf5c03..d693736 100644
+index ebf5c03..7297613 100644
 --- a/node_modules/spotifydl-core/dist/lib/API.js
 +++ b/node_modules/spotifydl-core/dist/lib/API.js
 @@ -14,7 +14,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
@@ -321,15 +384,54 @@ index ebf5c03..d693736 100644
              if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
              if (y = 0, t) op = [op[0] & 2, t.value];
              switch (op[0]) {
-@@ -119,6 +119,7 @@ var SpotifyApi = /** @class */ (function () {
+@@ -43,12 +43,14 @@ var spotify_web_api_node_1 = __importDefault(require("spotify-web-api-node"));
+ var Atrist_1 = __importDefault(require("./details/Atrist"));
+ var Playlist_1 = __importDefault(require("./details/Playlist"));
+ var Track_1 = __importDefault(require("./details/Track"));
++var getYtlink_1 = __importDefault(require("./getYtlink"));
+ var MAX_LIMIT_DEFAULT = 50;
+ var REFRESH_ACCESS_TOKEN_SECONDS = 55 * 60;
+ var SpotifyApi = /** @class */ (function () {
+-    function SpotifyApi(auth) {
++    function SpotifyApi(auth, yt_cookie) {
+         var _this = this;
+         this.auth = auth;
++        this.yt_cookie = yt_cookie;
+         this.verifyCredentials = function () { return __awaiter(_this, void 0, void 0, function () {
+             return __generator(this, function (_a) {
+                 switch (_a.label) {
+@@ -105,12 +107,12 @@ var SpotifyApi = /** @class */ (function () {
+             });
+         }); };
+         this.extractTrack = function (trackId) { return __awaiter(_this, void 0, void 0, function () {
+-            var data, details;
+-            return __generator(this, function (_a) {
+-                switch (_a.label) {
++            var data, details, _a;
++            return __generator(this, function (_b) {
++                switch (_b.label) {
+                     case 0: return [4 /*yield*/, this.spotifyAPI.getTrack(trackId)];
+                     case 1:
+-                        data = (_a.sent()).body;
++                        data = (_b.sent()).body;
+                         details = new Track_1.default();
+                         details.name = data.name;
+                         data.artists.forEach(function (artist) {
+@@ -119,6 +121,13 @@ var SpotifyApi = /** @class */ (function () {
                          details.album_name = data.album.name;
                          details.release_date = data.album.release_date;
                          details.cover_url = data.album.images[0].url;
 +                        details.track_number = data.track_number;
++                        details.spotify_id = data.id;
++                        _a = details;
++                        return [4 /*yield*/, (0, getYtlink_1.default)("".concat(data.name, " ").concat(data.artists.join(' ')))];
++                    case 2:
++                        _a.youtube_url = _b.sent();
++                        details.spotify_url = data.external_urls.spotify;
                          return [2 /*return*/, details];
                  }
              });
-@@ -214,7 +215,7 @@ var SpotifyApi = /** @class */ (function () {
+@@ -214,11 +223,12 @@ var SpotifyApi = /** @class */ (function () {
                      case 1:
                          _a.sent();
                          return [4 /*yield*/, this.spotifyAPI.getUser(id)];
@@ -338,45 +440,134 @@ index ebf5c03..d693736 100644
                  }
              });
          }); };
+         this.spotifyAPI = new spotify_web_api_node_1.default(this.auth);
++        this.yt_cookie = yt_cookie || '';
+     }
+     return SpotifyApi;
+ }());
+diff --git a/node_modules/spotifydl-core/dist/lib/details/Song.d.ts b/node_modules/spotifydl-core/dist/lib/details/Song.d.ts
+deleted file mode 100644
+index 2826669..0000000
+--- a/node_modules/spotifydl-core/dist/lib/details/Song.d.ts
++++ /dev/null
+@@ -1,9 +0,0 @@
+-import { ISong } from '../../typings';
+-export default class SongDetails implements ISong {
+-    name: string;
+-    artists: string[];
+-    album_name: string;
+-    release_date: string;
+-    cover_url: string;
+-    constructor(name?: string, artists?: string[], album_name?: string, release_date?: string, cover_url?: string);
+-}
+diff --git a/node_modules/spotifydl-core/dist/lib/details/Song.js b/node_modules/spotifydl-core/dist/lib/details/Song.js
+deleted file mode 100644
+index c14b904..0000000
+--- a/node_modules/spotifydl-core/dist/lib/details/Song.js
++++ /dev/null
+@@ -1,18 +0,0 @@
+-"use strict";
+-Object.defineProperty(exports, "__esModule", { value: true });
+-var SongDetails = /** @class */ (function () {
+-    function SongDetails(name, artists, album_name, release_date, cover_url) {
+-        if (name === void 0) { name = ''; }
+-        if (artists === void 0) { artists = []; }
+-        if (album_name === void 0) { album_name = ''; }
+-        if (release_date === void 0) { release_date = ''; }
+-        if (cover_url === void 0) { cover_url = ''; }
+-        this.name = name;
+-        this.artists = artists;
+-        this.album_name = album_name;
+-        this.release_date = release_date;
+-        this.cover_url = cover_url;
+-    }
+-    return SongDetails;
+-}());
+-exports.default = SongDetails;
 diff --git a/node_modules/spotifydl-core/dist/lib/details/Track.d.ts b/node_modules/spotifydl-core/dist/lib/details/Track.d.ts
-index f92078b..e850651 100644
+index f92078b..4b56d14 100644
 --- a/node_modules/spotifydl-core/dist/lib/details/Track.d.ts
 +++ b/node_modules/spotifydl-core/dist/lib/details/Track.d.ts
-@@ -5,5 +5,6 @@ export default class TrackDetails implements ITrack {
+@@ -5,5 +5,20 @@ export default class TrackDetails implements ITrack {
      album_name: string;
      release_date: string;
      cover_url: string;
 -    constructor(name?: string, artists?: string[], album_name?: string, release_date?: string, cover_url?: string);
 +    track_number: number;
-+    constructor(name?: string, artists?: string[], album_name?: string, release_date?: string, cover_url?: string, track_number?: number);
++    spotify_id: string;
++    spotify_url: string;
++    youtube_url: string;
++    constructor(name?: string, artists?: string[], album_name?: string, release_date?: string, cover_url?: string, track_number?: number, spotify_id?: string, spotify_url?: string, youtube_url?: string);
++}
++export interface ITrackDetails {
++    name: string;
++    artists: string[];
++    album_name: string;
++    release_date: string;
++    cover_url: string;
++    track_number: number;
++    spotify_id?: string;
++    spotify_url?: string;
++    youtube_url?: string;
  }
 diff --git a/node_modules/spotifydl-core/dist/lib/details/Track.js b/node_modules/spotifydl-core/dist/lib/details/Track.js
-index 8032512..ec53b82 100644
+index 8032512..ba87cb0 100644
 --- a/node_modules/spotifydl-core/dist/lib/details/Track.js
 +++ b/node_modules/spotifydl-core/dist/lib/details/Track.js
-@@ -1,17 +1,19 @@
+@@ -1,17 +1,29 @@
  "use strict";
  Object.defineProperty(exports, "__esModule", { value: true });
  var TrackDetails = /** @class */ (function () {
 -    function TrackDetails(name, artists, album_name, release_date, cover_url) {
-+    function TrackDetails(name, artists, album_name, release_date, cover_url, track_number) {
++    function TrackDetails(
++    // Needed to download
++    name, artists, album_name, release_date, cover_url, track_number, 
++    // Optional
++    spotify_id, spotify_url, youtube_url) {
          if (name === void 0) { name = ''; }
          if (artists === void 0) { artists = []; }
          if (album_name === void 0) { album_name = ''; }
          if (release_date === void 0) { release_date = ''; }
          if (cover_url === void 0) { cover_url = ''; }
 +        if (track_number === void 0) { track_number = 0; }
++        if (spotify_id === void 0) { spotify_id = ''; }
++        if (spotify_url === void 0) { spotify_url = ''; }
++        if (youtube_url === void 0) { youtube_url = ''; }
          this.name = name;
          this.artists = artists;
          this.album_name = album_name;
          this.release_date = release_date;
          this.cover_url = cover_url;
 +        this.track_number = track_number;
++        this.spotify_id = spotify_id;
++        this.spotify_url = spotify_url;
++        this.youtube_url = youtube_url;
      }
      return TrackDetails;
  }());
+diff --git a/node_modules/spotifydl-core/dist/lib/download.d.ts b/node_modules/spotifydl-core/dist/lib/download.d.ts
+index 6e90f74..f4408ee 100644
+--- a/node_modules/spotifydl-core/dist/lib/download.d.ts
++++ b/node_modules/spotifydl-core/dist/lib/download.d.ts
+@@ -5,14 +5,14 @@
+  * @returns `Buffer`
+  * @throws Error if the URL is invalid
+  */
+-export declare const downloadYT: (url: string) => Promise<Buffer>;
++export declare const downloadYT: (url: string, credentialsCookie?: string | undefined) => Promise<Buffer>;
+ /**
+  * Function to download and save audio from youtube
+  * @param url URL to download
+  * @param filename the file to save to
+  * @returns filename
+  */
+-export declare const downloadYTAndSave: (url: string, filename?: string) => Promise<string>;
++export declare const downloadYTAndSave: (url: string, filename?: string, credentialsCookie?: string | undefined) => Promise<string>;
+ /**
+  * Function to get buffer of files with their URLs
+  * @param url URL to get Buffer of
 diff --git a/node_modules/spotifydl-core/dist/lib/download.js b/node_modules/spotifydl-core/dist/lib/download.js
-index b127344..15616de 100644
+index b127344..6be225e 100644
 --- a/node_modules/spotifydl-core/dist/lib/download.js
 +++ b/node_modules/spotifydl-core/dist/lib/download.js
 @@ -14,7 +14,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
@@ -388,7 +579,15 @@ index b127344..15616de 100644
              if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
              if (y = 0, t) op = [op[0] & 2, t.value];
              switch (op[0]) {
-@@ -59,13 +59,13 @@ var downloadYT = function (url) { return __awaiter(void 0, void 0, void 0, funct
+@@ -52,20 +52,27 @@ var fluent_ffmpeg_1 = __importDefault(require("fluent-ffmpeg"));
+  * @returns `Buffer`
+  * @throws Error if the URL is invalid
+  */
+-var downloadYT = function (url) { return __awaiter(void 0, void 0, void 0, function () {
++var downloadYT = function (url, credentialsCookie) { return __awaiter(void 0, void 0, void 0, function () {
+     var filename, stream;
+     return __generator(this, function (_a) {
+         switch (_a.label) {
              case 0:
                  if (!ytdl_core_1.default.validateURL(url))
                      throw new Error_1.default('Invalid YT URL', 'SpotifyDlError');
@@ -397,15 +596,23 @@ index b127344..15616de 100644
 +                filename = "".concat(os_1.default.tmpdir(), "/").concat(Math.random().toString(36).slice(-5), ".mp3");
 +                stream = (0, ytdl_core_1.default)(url, {
                      quality: 'highestaudio',
-                     filter: 'audioonly'
+-                    filter: 'audioonly'
++                    filter: 'audioonly',
++                    requestOptions: {
++                        headers: {
++                            cookie: credentialsCookie || ''
++                        }
++                    }
                  });
++                if (!stream)
++                    throw new Error_1.default('Error while downloading', 'SpotifyDlError');
                  return [4 /*yield*/, new Promise(function (resolve, reject) {
 -                        fluent_ffmpeg_1.default(stream)
 +                        (0, fluent_ffmpeg_1.default)(stream)
                              .audioBitrate(128)
                              .save(filename)
                              .on('error', function (err) { return reject(err); })
-@@ -73,10 +73,10 @@ var downloadYT = function (url) { return __awaiter(void 0, void 0, void 0, funct
+@@ -73,10 +80,10 @@ var downloadYT = function (url) { return __awaiter(void 0, void 0, void 0, funct
                              var buffer;
                              return __generator(this, function (_a) {
                                  switch (_a.label) {
@@ -418,18 +625,20 @@ index b127344..15616de 100644
                                          resolve(buffer);
                                          return [2 /*return*/];
                                  }
-@@ -95,24 +95,24 @@ exports.downloadYT = downloadYT;
+@@ -94,25 +101,25 @@ exports.downloadYT = downloadYT;
+  * @param filename the file to save to
   * @returns filename
   */
- var downloadYTAndSave = function (url, filename) {
+-var downloadYTAndSave = function (url, filename) {
 -    if (filename === void 0) { filename = './spotifydl-core.mp3'; }
++var downloadYTAndSave = function (url, filename, credentialsCookie) {
 +    if (filename === void 0) { filename = (Math.random() + 1).toString(36).substring(7) + '.mp3'; }
      return __awaiter(void 0, void 0, void 0, function () {
          var audio, err_1;
          return __generator(this, function (_a) {
              switch (_a.label) {
 -                case 0: return [4 /*yield*/, exports.downloadYT(url)];
-+                case 0: return [4 /*yield*/, (0, exports.downloadYT)(url)];
++                case 0: return [4 /*yield*/, (0, exports.downloadYT)(url, credentialsCookie)];
                  case 1:
                      audio = _a.sent();
                      _a.label = 2;
@@ -447,8 +656,21 @@ index b127344..15616de 100644
                  case 5: return [2 /*return*/];
              }
          });
+diff --git a/node_modules/spotifydl-core/dist/lib/getYtlink.js b/node_modules/spotifydl-core/dist/lib/getYtlink.js
+index 81cb671..251f3d4 100644
+--- a/node_modules/spotifydl-core/dist/lib/getYtlink.js
++++ b/node_modules/spotifydl-core/dist/lib/getYtlink.js
+@@ -14,7 +14,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
+     function verb(n) { return function (v) { return step([n, v]); }; }
+     function step(op) {
+         if (f) throw new TypeError("Generator is already executing.");
+-        while (_) try {
++        while (g && (g = 0, op[0] && (_ = 0)), _) try {
+             if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+             if (y = 0, t) op = [op[0] & 2, t.value];
+             switch (op[0]) {
 diff --git a/node_modules/spotifydl-core/dist/lib/metadata.js b/node_modules/spotifydl-core/dist/lib/metadata.js
-index 0f7093e..4d9300e 100644
+index 0f7093e..f6bdab9 100644
 --- a/node_modules/spotifydl-core/dist/lib/metadata.js
 +++ b/node_modules/spotifydl-core/dist/lib/metadata.js
 @@ -14,7 +14,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
@@ -460,11 +682,7 @@ index 0f7093e..4d9300e 100644
              if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
              if (y = 0, t) op = [op[0] & 2, t.value];
              switch (op[0]) {
-@@ -47,20 +47,23 @@ exports.default = (function (data, file) { return __awaiter(void 0, void 0, void
-         switch (_a.label) {
-             case 0:
-                 outputOptions = ['-map', '0:0', '-codec', 'copy'];
-+                console.log(data);
+@@ -50,17 +50,19 @@ exports.default = (function (data, file) { return __awaiter(void 0, void 0, void
                  metadata = {
                      title: data.name,
                      album: data.album_name,
@@ -489,7 +707,7 @@ index 0f7093e..4d9300e 100644
                              .input(file)
                              .on('error', function (err) {
                              reject(err);
-@@ -70,8 +73,8 @@ exports.default = (function (data, file) { return __awaiter(void 0, void 0, void
+@@ -70,8 +72,8 @@ exports.default = (function (data, file) { return __awaiter(void 0, void 0, void
                      })];
              case 1:
                  _a.sent();
