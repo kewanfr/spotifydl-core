@@ -51,6 +51,7 @@ export default class SpotifyApi {
         details.album_name = data.album.name
         details.release_date = data.album.release_date
         details.cover_url = data.album.images[0].url
+        details.track_number = data.track_number
         return details
     }
 
