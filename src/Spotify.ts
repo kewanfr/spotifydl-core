@@ -200,7 +200,6 @@ export default class SpotifyFetcher extends SpotifyApi {
     ): Promise<T extends undefined ? Buffer : string> => {
         const yt_link = info.youtube_url ?? (await getYtlink(`${info.name} ${info.artists.join(' ')}`))
         // const link = await getYtlink(`${info.name} ${info.artists.join(' ')}`)
-        console.log(yt_link)
         if (!yt_link) throw new SpotifyDlError(`Couldn't get a download URL for the track: ${info.name}`)
         const resultFilename = await downloadYTAndSave(
             yt_link,
