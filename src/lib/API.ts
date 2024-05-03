@@ -56,7 +56,8 @@ export default class SpotifyApi {
         details.track_number = data.track_number
 
         details.spotify_id = data.id
-        details.youtube_url = await getYtlink(`${data.name} ${data.artists.join(' ')}`)
+        details.youtube_url = await getYtlink(`${details.name} ${details.artists.join(' ')}`)
+
         details.spotify_url = data.external_urls.spotify
         return details
     }
