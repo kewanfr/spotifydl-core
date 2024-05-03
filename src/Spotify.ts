@@ -16,17 +16,24 @@ const readFileAsync = promisify(fs.readFile)
 export default class SpotifyFetcher extends SpotifyApi {
     constructor(auth: IAuth, ytCookie?: string) {
         super(auth, ytCookie || '')
-
     }
 
     /**
-     * Get the track details of the given track URL
-     * @param url
+     * Get the track details of the given track URL or ID
+     * @param term URL or ID of the track
      * @returns {SongDetails} Track
      */
-    getTrack = async (url: string): Promise<SongDetails> => {
+    getTrack = async (term: string): Promise<SongDetails> => {
         await this.verifyCredentials()
-        return await this.extractTrack(this.getID(url))
+
+        let track_id
+        if (term.includes('http')) {
+            track_id = this.getID(term)
+        } else {
+            track_id = term
+        }
+
+        return await this.extractTrack(this.getID(track_id))
     }
 
     /**
@@ -199,6 +206,7 @@ export default class SpotifyFetcher extends SpotifyApi {
         filename?: undefined | string
     ): Promise<T extends undefined ? Buffer : string> => {
         const yt_link = info.youtube_url ?? (await getYtlink(`${info.name} ${info.artists.join(' ')}`))
+
         // const link = await getYtlink(`${info.name} ${info.artists.join(' ')}`)
         if (!yt_link) throw new SpotifyDlError(`Couldn't get a download URL for the track: ${info.name}`)
         const resultFilename = await downloadYTAndSave(
@@ -217,9 +225,15 @@ export default class SpotifyFetcher extends SpotifyApi {
         if (!filename) {
             const buffer = await readFileAsync(resultFilename)
             await unlink(resultFilename)
-            return buffer as any
+            return {
+                buffer,
+                youtube_url: yt_link
+            } as any
         }
-        return resultFilename as any
+        return {
+            filename: resultFilename,
+            youtube_url: yt_link
+        } as any
 
         // const link = await getYtlink(`${info.name} ${info.artists[0]}`)
         // if (!link) throw new SpotifyDlError(`Couldn't get a download URL for the track: ${info.name}`)
